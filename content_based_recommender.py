@@ -1,33 +1,30 @@
 #############################
-# Content Based Recommendation (İçerik Temelli Tavsiye)
+# Content Based Recommendation
 #############################
 
 #############################
-# Film Overview'larına Göre Tavsiye Geliştirme
+# Developing Recommendations Based on Movie Reviews
 #############################
+
+
 """
-Yeni kurulmuş online film izleme platformu kullanıcılarına film önerilerinde bulunmak istemektedir.
-Kullanıcılarının login oranı çok düşük olduğu için kullanıcı alışkanlıklarını toplayamamaktadır. Bu sebeple iş birlikçi filtreleme
-yöntemleri ile ürün önerileri geliştirememektedir.
-Fakat kullanıcıların tarayıcıdaki izlerinden(cookilerinden) hangi filmleri izlediklerini bilmektedir. Bu bilgiye göre film önerilerinde bulununuz.
-
-
-veriseti bilgisi
-movies_metadata.csv 45000 film ile ilgili temel bilgileri barındırmaktadır
-overview film açıklamalarını içermektedir.
+--> budget: movie budget
+--> genres : genre
+--> homepage : homepages
+--> id: ids in the data set
+--> imdb_id: id in imdb
+--> overview: description
 """
 
 
+# 1. Creating the TF-IDF Matrix
+# 2. Creating the Cosine Similarity Matrix
+# 3. Making Suggestions Based on Similarities
+# 4. Preparation of Working Script
 
-
-
-# 1. TF-IDF Matrisinin Oluşturulması
-# 2. Cosine Similarity Matrisinin Oluşturulması
-# 3. Benzerliklere Göre Önerilerin Yapılması
-# 4. Çalışma Scriptinin Hazırlanması
 
 #################################
-# 1. TF-IDF Matrisinin Oluşturulması
+# 1. Creating the TF-IDF Matrix
 #################################
 
 import pandas as pd
@@ -37,115 +34,78 @@ pd.set_option('display.expand_frame_repr', False)
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 # https://www.kaggle.com/rounakbanik/the-movies-dataset
-df = pd.read_csv(r"C:\Users\MerveATASOY\Desktop\data_scientist_miuul\egitim_teorik_icerikler\Bolum_6_Tavsiye_Sistemleri\dataset\the_movies_dataset\movies_metadata.csv", low_memory=False)  # DtypeWarning kapamak icin low_memory=False yapıldı
+df = pd.read_csv(r"dataset\the_movies_dataset\movies_metadata.csv", low_memory=False) 
 df.head()
-df.shape
-"""
-budget :film bütçesi
-genres : türleri
-homepage : anasayfaları
-id : veri seti içerisindeki id'leri
-imdb_id : imdb'deki id
-overview: açıklama
-bizim için bu projede gerekli olan overview değişkenidir
-"""
-
-
+df.shap
 
 df["overview"].head()
-# bu metinleri işlememiz lazım
-
+# We need to process these texts
 
 tfidf = TfidfVectorizer(stop_words="english")
-# her bir dökümanın hem kendi içinde hemde bütün dökümanda etkilerini göz önünde bulundurarak bir standardizasyon işlemi gerçekleştirildi
-# in, on, an gibi ölçüm değeri taşımayan ve yaygın kullanılan ifadeler veri setinden çıkarılmalıdır
-# çünkü oluşturulacak olan tf-idf matrisinde değerlerin ortaya çıkardığı problem var bu yüzden stop_words="english" kullanıldı
-# bir şekilde on ifadesi geçen iki film birbirine yakın çıkarsa bu sonuçlarımızı saptırıyor olacaktır.
+# Commonly used expressions that do not have any measurement value, such as in, on, an, should be removed from the data set.
 
 
 df[df['overview'].isnull()]
 
-df['overview'] = df['overview'].fillna('') #NaN olanlar '' ile değiştirildi
-
+df['overview'] = df['overview'].fillna('')  # NaN ones replaced with ''
 tfidf_matrix = tfidf.fit_transform(df['overview'])
-
-tfidf_matrix.shape   #(45466, 75827)  (açıklamalar, unique metinler)
-
+tfidf_matrix.shape   #(45466, 75827)  (descriptions, unique words)
 df['title'].shape
 
 tfidf.get_feature_names()
-#burada gereksiz kelimelerde olabilir, anlamlı ya da anlamsız gelebilecek değerler silinip silinmeme konusunda değerlendirilebilir
-
-
 tfidf_matrix.toarray()
 
 
 #################################
-# 2. Cosine Similarity Matrisinin Oluşturulması
+# 2. Creating the Cosine Similarity Matrix
 #################################
 
-cosine_sim = cosine_similarity(tfidf_matrix,
-                               tfidf_matrix)
-
-# benzerliği hesaplanmak istenen matrisi alır bir argüman ya da iki argüman şeklinde girilecek kullanılabilir
-# bütün olası döküman çiftleri için tek tek cosine sim hesabı yapılmaktadır
+cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+# takes the matrix whose similarity is desired to be calculated, can be entered as one argument or two arguments
 
 
-cosine_sim.shape   #overview'lar
+cosine_sim.shape   #overviews
 cosine_sim[1]
-
-#1. satırda ilk bir filmin diğer tüm filmlerle olan benzerlik skoru yer almaktadır
+# Row 1 contains the similarity score of the first movie with all other movies
 
 #################################
-# 3. Benzerliklere Göre Önerilerin Yapılması
+# 3. Making Suggestions Based on Similarities
 #################################
-#cosine_sim ile benzerlikler hesaplandı fakat bu skorları tek başına değrlendirmekte biraz zorlandık
-#değerlendirme için bu filmlerin isimleri lazım
-
 
 indices = pd.Series(df.index, index=df['title'])
-# seri'nin index'ne filmin ismi, yanına ise bu isme sahip filmin hangi indexte olduğu nümerik bilgisi verildi
+# The name of the movie was given to the index of the series, and next to it, numerical information was given in which index the movie with this name was placed.
 
 
 indices.index.value_counts()
-# buradan bakıldığından title'larda çoklama olduğu görülür
-# öyle birşey yapmalı ki bu çoklamalardan birini tutup diğerini silmeliyim
+# Multiples in titles have been deleted
+indices = indices[~indices.index.duplicated(keep='last')]  
 
-# önerilerde bulunabileceğim kişilerin güncellik açısından davranışlarını daha kolay şekillendirebileceğim varsayımıyla bu tür çoklama isimlendirmelerin en sonundakini alacağım
-# son çekilen filme gidildi
-indices = indices[~indices.index.duplicated(keep='last')]   # duplicate olanların sonuncusuna git demesi gerekmez miydi ?
-# duplicate şunu yapar : bütün isimlendirmelere çoklama mı değil mi sorusunu sorar; True/False değerleri döner;  sonuncuyu tutar
-# tilda olması duplicate olmayanlara git demek çünkü method duplicate olanlara true koyar
 indices["Cinderella"]
 
 indices["Sherlock Holmes"]
 
 movie_index = indices["Sherlock Holmes"]
 
-cosine_sim[movie_index] #cosine_sim'e bu index ile gidilirse sherlock holmes seçilmiş olunur, bu durumda sherlock ile diğer filmler arasındaki similartiy score'lara erişilir
+cosine_sim[movie_index] 
+# If you go to cosine_sim with this index, sherlock holmes will be selected, in this case similar scores between sherlock and other movies will be accessed.
 
-
-similarity_scores = pd.DataFrame(cosine_sim[movie_index],
-                                 columns=["score"])
+similarity_scores = pd.DataFrame(cosine_sim[movie_index], columns=["score"])
 
 movie_indices = similarity_scores.sort_values("score", ascending=False)[1:11].index
-# azalan sırada en yüksek 10 film sıralandı
+# Top 10 movies ranked in descending order
 
 df['title'].iloc[movie_indices]
 
 #################################
-# 4. Çalışma Scriptinin Hazırlanması
+# 4. Preparation of Working Script
 #################################
 
 def content_based_recommender(title, cosine_sim, dataframe):
-    # index'leri olusturma
     indices = pd.Series(dataframe.index, index=dataframe['title'])
     indices = indices[~indices.index.duplicated(keep='last')]
     # title'ın index'ini yakalama
     movie_index = indices[title]
-    # title'a gore benzerlik skorlarını hesaplama
     similarity_scores = pd.DataFrame(cosine_sim[movie_index], columns=["score"])
-    # kendisi haric ilk 10 filmi getirme
     movie_indices = similarity_scores.sort_values("score", ascending=False)[1:11].index
     return dataframe['title'].iloc[movie_indices]
 
@@ -165,15 +125,6 @@ def calculate_cosine_sim(dataframe):
     cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
     return cosine_sim
 
-
 cosine_sim = calculate_cosine_sim(df)
 content_based_recommender('The Dark Knight Rises', cosine_sim, df)
 
-
-# SORU : Büyük ölçekli olarak bu iş veri tabanı seviyesinde nasıl gerçekleştirilir ?
-# ÖRNEĞİN : Kullanıcıların en fazla izlediği 100  ya da 200 tane film belirlenir (id'ler alındı),
-# Burada gerçekleştirilen işlemler alt kümeye indirgenen en çok ilgi gören 100 filmin her biri için gerçekleştirilir ve her biri için bir öneri seti oluşturulur ve bu bir tabloda tutulur
-# id [önermek istenen id'ler]
-# 1 [90, 12, 23, 45, 67]
-# 2 [90, 12, 23, 45, 67]
-# 3
