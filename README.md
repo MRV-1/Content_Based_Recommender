@@ -56,7 +56,7 @@ Multiples in titles have been deleted.
 # 4. Preparation of Working Script
 
 
- # BONUS
+ # BONUS 〽〽
 
 ### QUESTION: How can this work be carried out at the database level on a large scale?
 ### ANSWER: The 100 or 200 movies that users watch most are determined.
